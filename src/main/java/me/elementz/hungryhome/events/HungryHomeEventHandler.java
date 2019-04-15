@@ -1,9 +1,17 @@
 package me.elementz.hungryhome.events;
 
 import com.flowpowered.math.vector.Vector3d;
+import io.github.nucleuspowered.nucleus.api.NucleusAPI;
 import io.github.nucleuspowered.nucleus.api.events.NucleusHomeEvent;
+import io.github.nucleuspowered.nucleus.api.exceptions.NoSuchPlayerException;
+import io.github.nucleuspowered.nucleus.api.exceptions.NucleusException;
+import io.github.nucleuspowered.nucleus.api.service.NucleusHomeService;
 import me.elementz.hungryhome.HungryHome;
+import org.spongepowered.api.Sponge;
+import org.spongepowered.api.data.DataContainer;
+import org.spongepowered.api.data.DataQuery;
 import org.spongepowered.api.data.DataTransactionResult;
+import org.spongepowered.api.data.DataView;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.property.item.FoodRestorationProperty;
 import org.spongepowered.api.data.property.item.SaturationProperty;
@@ -11,6 +19,10 @@ import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.entity.living.player.User;
 import org.spongepowered.api.entity.living.player.gamemode.GameModes;
 import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.event.cause.Cause;
+import org.spongepowered.api.event.cause.EventContext;
+import org.spongepowered.api.event.filter.Getter;
+import org.spongepowered.api.event.network.ClientConnectionEvent;
 import org.spongepowered.api.item.inventory.Inventory;
 import org.spongepowered.api.item.inventory.ItemStack;
 import org.spongepowered.api.text.Text;
@@ -18,14 +30,76 @@ import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.text.format.TextStyles;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
+import org.spongepowered.common.interfaces.world.IMixinWorldServer;
 
 
 public class HungryHomeEventHandler {
 
+    private static final DataQuery FORGE_CAPS = DataQuery.of("UnsafeData", "ForgeCaps");
+    private static final DataQuery GET_BACK_TO_HOME = DataQuery.of("get_back_to_home:home");
     private static float EXHAUSTION_SPRINT;
     private static float EXHAUSTION_JUMP;
     private static float EXHAUSTION_FALL;
     private static float EXHAUSTION_MULTIPLIER;
+
+    @Listener
+    public void onClientConnectionJoin(ClientConnectionEvent.Join event, @Getter("getTargetEntity") Player player) {
+        if (!Sponge.getPluginManager().isLoaded("get_back_to_home")) {
+            return;
+        }
+
+        DataContainer dataContainer = player.toContainer();
+        DataView forgeCaps = dataContainer.getView(FORGE_CAPS).orElse(null);
+        if (forgeCaps == null) {
+            // Not a Forge server?
+            return;
+        }
+
+        int[] homeData = forgeCaps.get(GET_BACK_TO_HOME)
+                .filter(object -> object.getClass().isArray())
+                .map(int[].class::cast).orElse(null);
+        if (homeData == null) {
+            return;
+        }
+
+        // X, Y, Z, Dimension
+        if (homeData.length != 4) {
+            HungryHome.getLogger().error("Invalid Home Data");
+            return;
+        }
+
+        int x = homeData[0];
+        int y = homeData[1];
+        int z = homeData[2];
+        int dimension = homeData[3];
+        World world = getWorld(dimension);
+
+        if (world == null) {
+            HungryHome.getLogger().error("Failed to find world with id {}", dimension);
+            return;
+        }
+
+        Location<World> location = new Location<>(world, x, y, z);
+        NucleusHomeService homeService = NucleusAPI.getHomeService().orElse(null);
+        if (homeService == null) {
+            return;
+        }
+
+        if (homeService.getHomeCount(player.getUniqueId()) > 0) {
+            return;
+        }
+
+        try {
+            Cause cause = Cause.of(EventContext.builder().build(), player);
+            homeService.createHome(cause, player.getUniqueId(), "home", location, Vector3d.ZERO);
+            HungryHome.getLogger().info("Successfully converted home for {}", player.getName());
+        } catch (NoSuchPlayerException ex) {
+            HungryHome.getLogger().error("Failed to find player {}", player.getName(), ex);
+        } catch (NucleusException ex) {
+            player.sendMessage(Text.of(TextColors.RED, "Failed to convert home: ", ex.getExceptionType()));
+            HungryHome.getLogger().error("Failed to create home for {}", player.getName(), ex);
+        }
+    }
 
     @Listener
     public void goHome(NucleusHomeEvent.Use event) {
@@ -141,6 +215,17 @@ public class HungryHomeEventHandler {
             }
         }
         return false;
+    }
+
+    private World getWorld(int dimension) {
+        for (World world : Sponge.getServer().getWorlds()) {
+            // Fuck Sponge
+            if (((IMixinWorldServer) world).getDimensionId() == dimension) {
+                return world;
+            }
+        }
+
+        return null;
     }
 
 }
