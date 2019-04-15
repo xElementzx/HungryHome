@@ -6,6 +6,9 @@ import ninja.leaping.configurate.objectmapping.serialize.ConfigSerializable;
 @ConfigSerializable
 public class MainCategory {
 
+    @Setting(value = "GUARANTEED", comment = "Guaranteed to get home, however you will be exhausted upon arriving DEFAULT: TRUE")
+    public boolean GUARANTEED = true;
+
     @Setting(value = "EXHAUSTION_SPRINT", comment = "Food cost for 1 block of horizontal movement DEFAULT: 0.1")
     public double exhaustion_sprint = 0.1;
 

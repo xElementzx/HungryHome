@@ -37,6 +37,7 @@ public class HungryHomeEventHandler {
 
     private static final DataQuery FORGE_CAPS = DataQuery.of("UnsafeData", "ForgeCaps");
     private static final DataQuery GET_BACK_TO_HOME = DataQuery.of("get_back_to_home:home");
+    private static boolean GUARANTEED;
     private static float EXHAUSTION_SPRINT;
     private static float EXHAUSTION_JUMP;
     private static float EXHAUSTION_FALL;
@@ -96,7 +97,7 @@ public class HungryHomeEventHandler {
         } catch (NoSuchPlayerException ex) {
             HungryHome.getLogger().error("Failed to find player {}", player.getName(), ex);
         } catch (NucleusException ex) {
-            player.sendMessage(Text.of(TextColors.RED, "Failed to convert home: ", ex.getExceptionType()));
+            player.sendMessage(Text.of(TextColors.DARK_RED, "Failed to convert home: ", ex.getExceptionType()));
             HungryHome.getLogger().error("Failed to create home for {}", player.getName(), ex);
         }
     }
@@ -107,17 +108,18 @@ public class HungryHomeEventHandler {
         EXHAUSTION_JUMP = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_jump;
         EXHAUSTION_FALL = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_fall;
         EXHAUSTION_MULTIPLIER = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_multiplier;
+        GUARANTEED = HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().GUARANTEED;
 
         User user = event.getUser();
         Player player = user.getPlayer().orElse(null);
-        if (player == null) {
-            HungryHome.getLogger().error("An error occurred Player is NULL");
-            return; //Fuck...
-        }
-
         if (player.hasPermission("hungryhome.exempt") || player.gameMode().get() == GameModes.CREATIVE) {
             player.sendMessage(Text.of(TextColors.GREEN, "Exempt from hunger cost"));
             return;
+        }
+
+        if (player == null) {
+            HungryHome.getLogger().error("An error occurred Player is NULL");
+            return; //Fuck...
         }
 
         Vector3d pos = player.getPosition();
@@ -144,7 +146,7 @@ public class HungryHomeEventHandler {
 
         float food = player.foodLevel().get();
         float saturation = player.saturation().get().floatValue();
-        boolean canTeleport = false;//!ModConfig.paymentType;
+        boolean canTeleport = false;
         if (saturation >= exhaustion) {
             saturation -= exhaustion;
             exhaustion = 0;
@@ -161,25 +163,35 @@ public class HungryHomeEventHandler {
             exhaustion -= food;
             food = 0;
         }
-        if (!canTeleport && checkFood(false, player, exhaustion)) {
-            checkFood(true, player, exhaustion);
+
+        if (!canTeleport && food == 0 && saturation == 0 && checkFood(false, GUARANTEED, player, exhaustion)) {
+            checkFood(true, GUARANTEED, player, exhaustion);
+            if (GUARANTEED) {
+                DataTransactionResult result = player.offer(Keys.EXHAUSTION, (double) exhaustion);
+                if (!result.isSuccessful()) {
+                    event.setCancelMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
+                    event.setCancelled(true);
+                    HungryHome.getLogger().error("An error occurred while subtracting exhaustion from {}", player.getName());
+                }
+                double playexh = player.exhaustion().get();
+                HungryHome.getLogger().info("Exhaustion: {}", playexh);
+            }
             canTeleport = true;
         }
-
         if (canTeleport) {
             DataTransactionResult result = player.offer(Keys.FOOD_LEVEL, (int) food);
             if (!result.isSuccessful()) {
+                event.setCancelMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
                 event.setCancelled(true);
                 HungryHome.getLogger().error("An error occurred while subtracting food from {}", player.getName());
-                player.sendMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
                 return;
             }
 
             result = player.offer(Keys.SATURATION, (double) saturation);
             if (!result.isSuccessful()) {
+                event.setCancelMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
                 event.setCancelled(true);
-                HungryHome.getLogger().error("An error occurred while subtracting saturation {}", player.getName());
-                player.sendMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
+                HungryHome.getLogger().error("An error occurred while subtracting saturation from {}", player.getName());
                 return;
             }
         } else {
@@ -189,7 +201,7 @@ public class HungryHomeEventHandler {
 
     }
 
-    private boolean checkFood(boolean consume, Player player, float exhaustion) {
+    private boolean checkFood(boolean consume, boolean guaranteed, Player player, float exhaustion) {
         for (Inventory slot : player.getInventory().slots()) {
             ItemStack stack = slot.peek().orElse(null);
             if (stack != null) {
@@ -198,7 +210,6 @@ public class HungryHomeEventHandler {
                 if (foodProp != null && foodProp.getValue() != null && satProp != null && satProp.getValue() != null) {
                     float itemFood = (float) (foodProp.getValue() + satProp.getValue());
                     float stackFood = itemFood * stack.getQuantity();
-
                     if (stackFood >= exhaustion) {
                         if (consume) stack = slot.poll().get();
                         int count = (int) Math.ceil(exhaustion / itemFood);
@@ -213,6 +224,12 @@ public class HungryHomeEventHandler {
                     }
                 }
             }
+        }
+        if (!consume && guaranteed) {
+            return true;
+        }
+        if (consume && guaranteed) {
+            return true;
         }
         return false;
     }
