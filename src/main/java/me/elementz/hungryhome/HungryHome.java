@@ -41,7 +41,6 @@ public class HungryHome {
     @DefaultConfig(sharedRoot = true)
     private Path path;
 
-
     public HungryHome() {
         instance = this;
     }
@@ -59,7 +58,6 @@ public class HungryHome {
     public void onServerStop(GameStoppedServerEvent event) {
         logger.info("HungryHome has stopped");
     }
-
 
     public static Logger getLogger() {
         return instance.logger;
