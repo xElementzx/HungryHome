@@ -1,16 +1,23 @@
 package me.elementz.hungryhome;
 
 import com.google.inject.Inject;
+import me.elementz.hungryhome.command.HungryHomeCommand;
+import me.elementz.hungryhome.configuration.Config;
 import me.elementz.hungryhome.configuration.Configuration;
 import me.elementz.hungryhome.events.HungryHomeEventHandler;
 import org.slf4j.Logger;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.command.args.GenericArguments;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.DefaultConfig;
 import org.spongepowered.api.event.Listener;
-import org.spongepowered.api.event.game.state.*;
+import org.spongepowered.api.event.game.state.GamePreInitializationEvent;
+import org.spongepowered.api.event.game.state.GameStoppedServerEvent;
 import org.spongepowered.api.plugin.Dependency;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
+import org.spongepowered.api.text.Text;
+
 import java.nio.file.Path;
 
 @Plugin(
@@ -50,7 +57,14 @@ public class HungryHome {
         configuration = new Configuration(path);
         configuration.loadConfiguration();
         configuration.saveConfiguration();
-        Sponge.getEventManager().registerListeners(this, new HungryHomeEventHandler());
+
+        CommandSpec commandSpec = CommandSpec.builder()
+                .executor(new HungryHomeCommand())
+                .arguments(GenericArguments.optional(GenericArguments.string(Text.of("arguments"))))
+                .build();
+
+        Sponge.getCommandManager().register(container, commandSpec, "hungryhome");
+        Sponge.getEventManager().registerListeners(container, new HungryHomeEventHandler());
         logger.info("HungryHomes has been loaded.");
     }
 
@@ -65,5 +79,9 @@ public class HungryHome {
 
     public static HungryHome getInstance() {
         return instance;
+    }
+
+    public Config getConfig() {
+        return configuration.getConfig();
     }
 }
