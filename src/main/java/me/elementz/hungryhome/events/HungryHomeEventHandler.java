@@ -37,11 +37,6 @@ public class HungryHomeEventHandler {
 
     private static final DataQuery FORGE_CAPS = DataQuery.of("UnsafeData", "ForgeCaps");
     private static final DataQuery GET_BACK_TO_HOME = DataQuery.of("get_back_to_home:home");
-    private static boolean GUARANTEED;
-    private static float EXHAUSTION_SPRINT;
-    private static float EXHAUSTION_JUMP;
-    private static float EXHAUSTION_FALL;
-    private static float EXHAUSTION_MULTIPLIER;
 
     @Listener
     public void onClientConnectionJoin(ClientConnectionEvent.Join event, @Getter("getTargetEntity") Player player) {
@@ -104,12 +99,6 @@ public class HungryHomeEventHandler {
 
     @Listener
     public void goHome(NucleusHomeEvent.Use event) {
-        EXHAUSTION_SPRINT = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_sprint;
-        EXHAUSTION_JUMP = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_jump;
-        EXHAUSTION_FALL = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_fall;
-        EXHAUSTION_MULTIPLIER = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().exhaustion_multiplier;
-        GUARANTEED = HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().GUARANTEED;
-
         User user = event.getUser();
         Player player = user.getPlayer().orElse(null);
         if (player.hasPermission("hungryhome.exempt") || player.gameMode().get() == GameModes.CREATIVE) {
@@ -131,17 +120,23 @@ public class HungryHomeEventHandler {
             return; //Fuck...
         }
 
+        float dimensionalCost = HungryHome.getInstance().getConfig().dimensionalCost;
+        float exhaustionSprint = HungryHome.getInstance().getConfig().exhaustionSprint;
+        float exhaustionJump = HungryHome.getInstance().getConfig().exhaustionJump;
+        float exhaustionFall = HungryHome.getInstance().getConfig().exhaustionFall;
+        float exhaustionMultiplier = HungryHome.getInstance().getConfig().exhaustionMultiplier;
+        boolean guarantee = HungryHome.getInstance().getConfig().guarantee;
         boolean xdimensional = player.getLocation().getExtent().getDimension() != location.getExtent().getDimension();
 
         Vector3d tPos = location.getPosition();
         int flatDistance = (int) (Math.abs(tPos.getX() - pos.getX()) + Math.abs(tPos.getZ() - pos.getZ()));
         int jumpHeight = (int) Math.max(0, tPos.getY() - pos.getY());
         int fallHeight = (int) Math.max(0, pos.getY() - tPos.getY());
-        float exhaustion = flatDistance * EXHAUSTION_SPRINT + jumpHeight * EXHAUSTION_JUMP + fallHeight * EXHAUSTION_FALL;
-        exhaustion *= EXHAUSTION_MULTIPLIER;
+        float exhaustion = flatDistance * exhaustionSprint + jumpHeight * exhaustionJump + fallHeight * exhaustionFall;
+        exhaustion *= exhaustionMultiplier;
 
         if (xdimensional) {
-            exhaustion = (float) HungryHome.getInstance().configuration.getConfig().getMainCategoryCategory().dimensionalcost;
+            exhaustion = dimensionalCost;
         }
 
         float food = player.foodLevel().get();
@@ -164,9 +159,9 @@ public class HungryHomeEventHandler {
             food = 0;
         }
 
-        if (!canTeleport && food == 0 && saturation == 0 && checkFood(false, GUARANTEED, player, exhaustion)) {
-            checkFood(true, GUARANTEED, player, exhaustion);
-            if (GUARANTEED) {
+        if (!canTeleport && food == 0 && saturation == 0 && checkFood(false, guarantee, player, exhaustion)) {
+            checkFood(true, guarantee, player, exhaustion);
+            if (guarantee) {
                 DataTransactionResult result = player.offer(Keys.EXHAUSTION, (double) exhaustion);
                 if (!result.isSuccessful()) {
                     event.setCancelMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
