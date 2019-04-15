@@ -17,6 +17,7 @@ import org.spongepowered.api.data.property.item.FoodRestorationProperty;
 import org.spongepowered.api.data.property.item.SaturationProperty;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.entity.living.player.User;
+import org.spongepowered.api.entity.living.player.gamemode.GameMode;
 import org.spongepowered.api.entity.living.player.gamemode.GameModes;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.cause.Cause;
@@ -101,14 +102,19 @@ public class HungryHomeEventHandler {
     public void goHome(NucleusHomeEvent.Use event) {
         User user = event.getUser();
         Player player = user.getPlayer().orElse(null);
-        if (player.hasPermission("hungryhome.exempt") || player.gameMode().get() == GameModes.CREATIVE) {
-            player.sendMessage(Text.of(TextColors.GREEN, "Exempt from hunger cost"));
-            return;
-        }
-
         if (player == null) {
             HungryHome.getLogger().error("An error occurred Player is NULL");
             return; //Fuck...
+        }
+
+        GameMode gameMode = player.gameMode().get();
+        if (gameMode == GameModes.CREATIVE || gameMode == GameModes.SPECTATOR) {
+            return;
+        }
+
+        if (player.hasPermission("hungryhome.exempt")) {
+            player.sendMessage(Text.of(TextColors.GREEN, "Exempt from hunger cost"));
+            return;
         }
 
         Vector3d pos = player.getPosition();
