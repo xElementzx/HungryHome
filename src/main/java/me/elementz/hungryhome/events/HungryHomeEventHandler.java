@@ -174,8 +174,6 @@ public class HungryHomeEventHandler {
                     event.setCancelled(true);
                     HungryHome.getLogger().error("An error occurred while subtracting exhaustion from {}", player.getName());
                 }
-                double playexh = player.exhaustion().get();
-                HungryHome.getLogger().info("Exhaustion: {}", playexh);
             }
             canTeleport = true;
         }
