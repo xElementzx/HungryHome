@@ -12,7 +12,7 @@ repositories {
     jcenter()
     maven {
         name = "drnaylor-minecraft"
-        url = "http://repo.drnaylor.co.uk/artifactory/list/minecraft"
+        url = "https://repo.drnaylor.co.uk/artifactory/list/minecraft"
     }
     maven {
         name = "sponge"

@@ -13,7 +13,9 @@ import org.spongepowered.api.entity.living.player.gamemode.GameModes;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.item.inventory.Inventory;
 import org.spongepowered.api.item.inventory.ItemStack;
-import org.spongepowered.api.text.serializer.TextSerializers;
+import org.spongepowered.api.text.Text;
+import org.spongepowered.api.text.format.TextColors;
+import org.spongepowered.api.text.format.TextStyles;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
@@ -36,12 +38,11 @@ public class HungryHomeEventHandler {
         Player player = user.getPlayer().orElse(null);
         if (player == null) {
             HungryHome.getLogger().error("An error occurred Player is NULL");
-            Thread.dumpStack();
             return; //Fuck...
         }
 
         if (player.hasPermission("hungryhome.exempt") || player.gameMode().get() == GameModes.CREATIVE) {
-            player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize("&aExempt from hunger cost"));
+            player.sendMessage(Text.of(TextColors.GREEN, "Exempt from hunger cost"));
             return;
         }
 
@@ -50,8 +51,7 @@ public class HungryHomeEventHandler {
 
         if (location == null) {
             HungryHome.getLogger().error("An error occurred Location is NULL");
-            player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize("&4a bug occurred please report this (See log for details)"));
-            Thread.dumpStack();
+            player.sendMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
             return; //Fuck...
         }
 
@@ -96,22 +96,20 @@ public class HungryHomeEventHandler {
             DataTransactionResult result = player.offer(Keys.FOOD_LEVEL, (int) food);
             if (!result.isSuccessful()) {
                 event.setCancelled(true);
-                HungryHome.getLogger().error("An error occurred while subtracting food");
-                player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize("&4a bug occurred please report this (See log for details)"));
-                Thread.dumpStack();
+                HungryHome.getLogger().error("An error occurred while subtracting food from {}", player.getName());
+                player.sendMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
                 return;
             }
 
             result = player.offer(Keys.SATURATION, (double) saturation);
             if (!result.isSuccessful()) {
                 event.setCancelled(true);
-                HungryHome.getLogger().error("An error occurred while subtracting saturation");
-                player.sendMessage(TextSerializers.FORMATTING_CODE.deserialize("&4a bug occurred please report this (See log for details)"));
-                Thread.dumpStack();
+                HungryHome.getLogger().error("An error occurred while subtracting saturation {}", player.getName());
+                player.sendMessage(Text.of(TextColors.DARK_RED, "a bug occurred please report this (See log for details)"));
                 return;
             }
         } else {
-            event.setCancelMessage(TextSerializers.FORMATTING_CODE.deserialize("&4&lYou are too exhausted to overcome this path"));
+            event.setCancelMessage(Text.of(TextColors.DARK_RED, TextStyles.BOLD, "You are too exhausted to overcome this path"));
             event.setCancelled(true);
         }
 
