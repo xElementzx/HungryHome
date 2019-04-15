@@ -32,11 +32,10 @@ import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 import org.spongepowered.common.interfaces.world.IMixinWorldServer;
 
-import java.util.List;
-
 
 public class HungryHomeEventHandler {
 
+    private static final DataQuery FORGE_CAPS = DataQuery.of("UnsafeData", "ForgeCaps");
     private static final DataQuery GET_BACK_TO_HOME = DataQuery.of("get_back_to_home:home");
     private static float EXHAUSTION_SPRINT;
     private static float EXHAUSTION_JUMP;
@@ -45,23 +44,34 @@ public class HungryHomeEventHandler {
 
     @Listener
     public void onClientConnectionJoin(ClientConnectionEvent.Join event, @Getter("getTargetEntity") Player player) {
+        if (!Sponge.getPluginManager().isLoaded("get_back_to_home")) {
+            return;
+        }
+
         DataContainer dataContainer = player.toContainer();
-        DataView forgeCaps = dataContainer.getView(DataQuery.of("UnsafeData", "ForgeCaps")).orElse(null);
+        DataView forgeCaps = dataContainer.getView(FORGE_CAPS).orElse(null);
         if (forgeCaps == null) {
             // Not a Forge server?
             return;
         }
 
-        List<Integer> home = forgeCaps.getIntegerList(GET_BACK_TO_HOME).orElse(null);
-        // X, Y, Z, Dimension
-        if (home == null || home.size() != 4) {
+        int[] homeData = forgeCaps.get(GET_BACK_TO_HOME)
+                .filter(object -> object.getClass().isArray())
+                .map(int[].class::cast).orElse(null);
+        if (homeData == null) {
             return;
         }
 
-        int x = home.remove(0);
-        int y = home.remove(0);
-        int z = home.remove(0);
-        int dimension = home.remove(0);
+        // X, Y, Z, Dimension
+        if (homeData.length != 4) {
+            HungryHome.getLogger().error("Invalid Home Data");
+            return;
+        }
+
+        int x = homeData[0];
+        int y = homeData[1];
+        int z = homeData[2];
+        int dimension = homeData[3];
         World world = getWorld(dimension);
 
         if (world == null) {
@@ -75,10 +85,13 @@ public class HungryHomeEventHandler {
             return;
         }
 
+        if (homeService.getHomeCount(player.getUniqueId()) > 0) {
+            return;
+        }
+
         try {
             Cause cause = Cause.of(EventContext.builder().build(), player);
-            homeService.createHome(cause, player.getUniqueId(), "home", location, new Vector3d(90, 0, 0));
-            forgeCaps.remove(GET_BACK_TO_HOME);
+            homeService.createHome(cause, player.getUniqueId(), "home", location, Vector3d.ZERO);
             HungryHome.getLogger().info("Successfully converted home for {}", player.getName());
         } catch (NoSuchPlayerException ex) {
             HungryHome.getLogger().error("Failed to find player {}", player.getName(), ex);
