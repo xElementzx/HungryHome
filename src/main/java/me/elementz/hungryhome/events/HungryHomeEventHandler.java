@@ -100,7 +100,7 @@ public class HungryHomeEventHandler {
 
     @Listener
     public void goHome(NucleusHomeEvent.Use event) {
-        User user = event.getUser();
+        User user = event.getTargetUser();
         Player player = user.getPlayer().orElse(null);
         if (player == null) {
             HungryHome.getLogger().error("An error occurred Player is NULL");
